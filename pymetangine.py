@@ -19,7 +19,7 @@ def mutate_function(args, func):
     n_ins = len(func["ops"])
     ins_idx = 0
     mutations = []
-    while ins_idx < n_ins -1:
+    while ins_idx < n_ins:
         ins_analyzed = func["ops"][ins_idx]
         if ins_analyzed["type"] not in META.mutable_ins:
             ins_idx += 1
@@ -33,19 +33,22 @@ def mutate_function(args, func):
                 if args.debug:
                     print colored("[DEBUG] Mutating instruction ({:#x}): {:15s} --> {:30s}"
                           .format(ins_analyzed["offset"], ins_analyzed["opcode"],
-                                  mutation if mutation != "" else ins_analyzed["opcode"]), "green")
+                                  mutation if mutation != "" else ins_analyzed["opcode"]), "green" if mutation != "" else "magenta")
                 if mutation:
                     mutations.append({"offset": ins_analyzed["offset"], "bytes": generate_bytes(mutation)})
             else:
                 ins_to_skip = size-ins_analyzed["size"]
+                # TODO -> cambiar nop; nop por push reg2; pop reg1 cuando sea necesario
                 n_nops = "nop" + "; nop" * ins_to_skip
+                same_ins = mutation == "" or mutation == n_nops
+
                 if args.debug:
                     print colored("[DEBUG] Mutating instruction ({:#x}): {:15s} --> {:30s}"
                           .format(ins_analyzed["offset"], n_nops,
-                                  mutation if mutation != "" else n_nops), "green")
+                                  mutation if not same_ins else n_nops), "green" if not same_ins else "magenta")
 
                 ins_idx += ins_to_skip
-                if mutation:
+                if not same_ins:
                     mutations.append({"offset": ins_analyzed["offset"], "bytes": generate_bytes(mutation)})
         ins_idx += 1
     return mutations
@@ -53,7 +56,7 @@ def mutate_function(args, func):
 
 def patch_executable(args, r2, list_mutations):
     print colored("[INFO] Writing mutations to {}".format(args.output), "cyan")
-    for mutation in list_mutations:
+    for idx, mutation in enumerate(list_mutations):
         r2.cmd("wx {} @{}".format(mutation["bytes"], mutation["offset"]))
 
     print colored("[INFO] Total number of mutations: {}"
@@ -98,6 +101,7 @@ def configure_environment(args):
     exe_info = r2.cmdj('ij')
     if exe_info['bin']['arch'] == "x86":
         bits = exe_info['bin']['bits']
+        print colored("[INFO] Detected {} bits architecture.".format(bits), "cyan")
     else:
         print colored("[ERROR] Architecture not supported.", "red")
         sys.exit()

@@ -27,49 +27,50 @@ class MetaEngine:
                 elif choice == 3:
                     return "push {}; pop {}".format(reg, reg)
 
-                elif choice == 4:
+                else:
                     return "{}; {}".format(self.get_nop_instructions(1),
                                            self.get_nop_instructions(1))
 
             elif size == 3:
                 choice = random.randint(1, 3)
                 rnd_ins_1B = random.choice(["pushfd", "popfd", "pushad", "popad",
-                                            "push {}".format(reg), "pop {}".format(reg),
-                                            "inc {}".format(reg)])
+                                            "push {}", "pop {}", "inc {}", "dec {}"])
 
                 if choice == 1:
-                    return "jmp {}; {}".format(3, rnd_ins_1B)
+                    return "jmp {}; {}".format(3, rnd_ins_1B.format(reg))
 
                 elif choice == 2:
                     return "{}; {}".format(self.get_nop_instructions(1),
                                            self.get_nop_instructions(2))
 
-                elif choice == 3:
+                else:
                     return "{}; {}".format(self.get_nop_instructions(2),
                                            self.get_nop_instructions(1))
 
         elif self.bits == 64:
             if size == 2:
-                choice = random.randint(1, 4)
-
+                choice = random.randint(1, 3)
+                # sergio
                 if choice == 1:
                     return "pushfq; popfq"
+
                 elif choice == 2:
                     return "push {}; pop {}".format(reg, reg)
-                elif choice == 3:
+
+                else:
                     return "{}; {}".format(self.get_nop_instructions(1),
                                            self.get_nop_instructions(1))
 
             elif size == 3:
                 choice = random.randint(1, 4)
 
-                # no-op; push; pop already in case no-op; no-op x2
-                # no-op; pushfq; popfq already in case no-op; no-op x2
-                # push; pop; no-op already in case no-op x2; no-op
-                # pushfq; popfq; no-op already in case no-op x2; no-op
+                # nop; push; pop already in case no-op_1B; no-op_2B
+                # push; pop; nop already in case no-op_2B; no-op_1B
+                # nop; pushfq; popfq already in case no-op_1B; no-op_2B
+                # pushfq; popfq; nop already in case no-op_2B; no-op_1B
 
                 if choice == 1:
-                    return "push {}; {}; pop {}".format(reg, self.get_nop_instructions(1), reg)
+                    return "push {0}; {1}; pop {0}".format(reg, self.get_nop_instructions(1))
 
                 elif choice == 2:
                     return "pushfq; {}; popfq".format(self.get_nop_instructions(1))
@@ -77,22 +78,28 @@ class MetaEngine:
                 elif choice == 3:
                     return "{}; {}".format(self.get_nop_instructions(1), self.get_nop_instructions(2))
 
-                elif choice == 4:
+                else:
                     return "{}; {}".format(self.get_nop_instructions(2), self.get_nop_instructions(1))
 
             elif size == 4:
-                choice = random.randint(1, 5)
-                reg2 = random.choice(self.regs)
+                choice = random.randint(1, 2)
 
                 if choice == 1:
-                    return "jmp {}; push {}; push {}".format(4, reg, reg2)
-                elif choice == 2:
-                    return "jmp {}; pop {}; pop {}".format(4, reg, reg2)
-                elif choice == 3:
-                    return "jmp {}; push {}; pop {}".format(4, reg, reg2)
-                elif choice == 4:
-                    return "jmp {}; pop {}; push {}".format(4, reg, reg2)
-                elif choice == 5:
+                    rnd_ins_1B_x2 = random.sample(["push {}", "pop {}", "pushfq", "popfq"], 2)
+                    rnd_ins_2B = random.choice(["mov {}, {}", "test {}, {}", "cmp {}, {}",
+                                                "or {}, {}", "sub {}, {}", "inc {}",
+                                                "xor {}, {}", "and {}, {}", "dec {}"])
+                    rnd = random.randint(1, 2)
+                    if rnd == 1:
+                        reg2 = random.choice(self.regs)
+                        rnd_ins = rnd_ins_1B_x2.format(reg, reg2)
+                    else:
+                        reg_32b = ["eax", "ebx", "ecx", "edx", "esi", "edi"]
+                        rnd_ins = rnd_ins_2B.format(random.choice(reg_32b))
+
+                    return "jmp {}; {}".format(4, rnd_ins)
+
+                else:
                     return "{}; {}".format(self.get_nop_instructions(2),
                                            self.get_nop_instructions(2))
 
@@ -103,7 +110,8 @@ class MetaEngine:
 
         self.regs = ["eax", "ebx", "ecx", "edx", "esi", "edi"] if self.bits == 32 \
             else ["rax", "rbx", "rcx", "rdx", "rsi", "rdi"]
-
+        # "r8", "r9",
+        # "r10", "r11", "r12", "r13", "r14", "r15"
         self.nop_1B = re.compile(r"nop$")
         self.push_1B = re.compile(r"push (e..)$")
         self.pop_1B = re.compile(r"pop (e..)$")
@@ -117,13 +125,13 @@ class MetaEngine:
         self.mov_5B = re.compile("mov (e..), (0?x?(?:[0-7][\dA-Fa-f]|[\dA-Fa-f]))$")
 
         if self.bits == 64:
-            self.mov_3B = re.compile(r"mov (r..), (r..)$")
-            self.test_3B = re.compile(r"test (r..), ((?=\1)...)$")
-            self.or_3B = re.compile(r"or (r..), ((?=\1)...)$")
-            self.xor_3B = re.compile(r"xor (r..), ((?=\1)...)$")
-            self.sub_3B = re.compile(r"sub (r..), ((?=\1)...)$")
+            self.mov_3B = re.compile(r"mov (r.[ixp]), (r.[ixp])$")
+            self.test_3B = re.compile(r"test (r[a-ds189][ixp0-5]), ((?=\1)...)$")
+            self.or_3B = re.compile(r"or (r[a-ds189][ixp0-5]), ((?=\1)...)$")
+            self.xor_3B = re.compile(r"xor (r[a-ds189][ixp0-5]), ((?=\1)...)$")
+            self.sub_3B = re.compile(r"sub (r[a-ds189][ixp0-5]), ((?=\1)...)$")
 
-    def obtain_permutation(self, ins1, ins2, reverse=False, first=False):
+    def obtain_permutation(self, ins1, ins2, reverse=False, second=False):
         res = []
         for locations in combinations(range(len(ins1) + len(ins2)), len(ins2)):
             out = ins1[:]
@@ -131,10 +139,10 @@ class MetaEngine:
                 out.insert(location, element)
             res.append("; ".join(map(str, out)))
         if reverse:
-            if first:
-                ins1 = ins1[::-1]
-            else:
+            if second:
                 ins2 = ins2[::-1]
+            else:
+                ins1 = ins1[::-1]
             for locations in combinations(range(len(ins1) + len(ins2)), len(ins2)):
                 out = ins1[:]
                 for location, element in zip(locations, ins2):
@@ -146,31 +154,37 @@ class MetaEngine:
         if ins_list[idx]["size"] == 1:
             m1 = self.nop_1B.match(ins_list[idx]["opcode"])
             if m1 is not None:
-                m2 = self.nop_1B.match(ins_list[idx + 1]["opcode"])
-                if m2 is not None:
-                    m3 = self.nop_1B.match(ins_list[idx + 2]["opcode"])
-                    if m3 is not None:  # nop; nop; nop
-                        rnd = random.randint(1, 2)
-                        if rnd == 1:  # no-op; no-op; no-op
-                            return "{}".format(self.get_nop_instructions(3)), 3
-                        else:  # nop; nop; nop
-                            return "", 3
-                    else:  # nop; nop
-                        rnd = random.randint(1, 2)
-                        if rnd == 1:  # no-op; no-op
-                            return "{}".format(self.get_nop_instructions(2)), 2
-                        else:  # nop; nop
-                            return "", 2
+                if idx + 1 < len(ins_list) and ins_list[idx + 1]["type"] != "invalid":
+                    m2 = self.nop_1B.match(ins_list[idx + 1]["opcode"])
+                    if m2 is not None:
+                        if idx + 2 < len(ins_list) and ins_list[idx + 2]["type"] != "invalid":
+                            m3 = self.nop_1B.match(ins_list[idx + 2]["opcode"])
+                            if m3 is not None:  # nop; nop; nop
+                                rnd = random.randint(1, 2)
+
+                                if rnd == 1:  # no-op; no-op; no-op
+                                    return "{}".format(self.get_nop_instructions(3)), 3
+                                else:  # nop; nop; nop
+                                    return "", 3
+                            else:  # nop; nop
+                                rnd = random.randint(1, 2)
+
+                                if rnd == 1:  # no-op; no-op
+                                    return "{}".format(self.get_nop_instructions(2)), 2
+                                else:  # nop; nop
+                                    return "", 2
 
             m1 = self.push_1B.match(ins_list[idx]["opcode"])
             if m1 is not None:
-                m2 = self.pop_1B.match(ins_list[idx + 1]["opcode"])
-                if m2 is not None:  # push reg1; pop reg2
-                    rnd = random.randint(1, 2)
-                    if rnd == 1:  # mov reg2, reg1
-                        return "mov {}, {}".format(m2.group(1), m1.group(1))
-                    else:  # push reg1; pop reg2
-                        return "", 2
+                if idx + 1 < len(ins_list) and ins_list[idx + 1]["type"] != "invalid":
+                    m2 = self.pop_1B.match(ins_list[idx + 1]["opcode"])
+                    if m2 is not None:  # push reg1; pop reg2
+                        rnd = random.randint(1, 2)
+
+                        if rnd == 1:  # mov reg2, reg1
+                            return "mov {}, {}".format(m2.group(1), m1.group(1)), 2
+                        else:  # push reg1; pop reg2
+                            return "", 2
 
             return None
 
@@ -179,12 +193,14 @@ class MetaEngine:
             if m1 is not None:
                 if m1.group(1) == m1.group(2):  # mov reg1, reg1
                     rnd = random.randint(1, 2)
+
                     if rnd == 1:  # no-op; no-op
                         return "{}".format(self.get_nop_instructions(2)), 2
                     else:  # mov reg1, reg1
                         return "", 2
                 elif m1.group(1) != m1.group(2) and self.bits == 32:  # mov reg2, reg1
                     rnd = random.randint(1, 2)
+
                     if rnd == 1:  # push reg1; pop reg2
                         return "push {}; pop {}".format(m1.group(2), m1.group(1)), 2
                     else:  # mov reg2, reg1
@@ -193,6 +209,7 @@ class MetaEngine:
             m1 = self.test_2B.match(ins_list[idx]["opcode"])
             if m1 is not None:  # test reg1, reg1
                 rnd = random.randint(1, 2)
+
                 if rnd == 1:  # or reg1, reg1
                     return "or {0}, {0}".format(m1.group(1)), 2
                 else:  # test reg1, reg1
@@ -201,6 +218,7 @@ class MetaEngine:
             m1 = self.or_2B.match(ins_list[idx]["opcode"])
             if m1 is not None:  # or reg1, reg1
                 rnd = random.randint(1, 2)
+
                 if rnd == 1:  # test reg1, reg1
                     return "test {0}, {0}".format(m1.group(1)), 2
                 else:  # or reg1, reg1
@@ -209,6 +227,7 @@ class MetaEngine:
             m1 = self.xor_2B.match(ins_list[idx]["opcode"])
             if m1 is not None:  # xor reg1, reg1
                 rnd = random.randint(1, 2)
+
                 if rnd == 1:  # sub reg1, reg1
                     return "sub {0}, {0}".format(m1.group(1)), 2
                 else:  # xor reg1, reg1
@@ -217,6 +236,7 @@ class MetaEngine:
             m1 = self.sub_2B.match(ins_list[idx]["opcode"])
             if m1 is not None:  # sub reg1, reg1
                 rnd = random.randint(1, 2)
+
                 if rnd == 1:  # xor reg1, reg1
                     return "xor {0}, {0}".format(m1.group(1)), 2
                 else:  # sub reg1, reg1
@@ -225,22 +245,23 @@ class MetaEngine:
             return None
 
         if self.bits == 64:
-            m1 = self.mov_3B.match(ins_list[idx]["opcode"])
-            if m1 is not None:  # mov reg1, reg2
-                rnd = random.randint(1, 2)
-                if rnd == 1:  # no-op; push reg2; pop reg1
-                    ins_pair1 = ["{0}"]
-                    ins_pair2 = ["push {1}", "pop {2}"]
-
-                    return self.obtain_permutation(ins_pair1, ins_pair2) \
-                               .format(self.get_nop_instructions(1), m1.group(2), m1.group(1)), 3
-                else:
-                    return "", 3
-
             if ins_list[idx]["size"] == 3:
+                m1 = self.mov_3B.match(ins_list[idx]["opcode"])
+                if m1 is not None:  # mov reg1, reg2
+                    rnd = random.randint(1, 2)
+                    if rnd == 1:  # no-op; push reg2; pop reg1
+                        ins_pair1 = ["{0}"]
+                        ins_pair2 = ["push {1}", "pop {2}"]
+
+                        return self.obtain_permutation(ins_pair1, ins_pair2) \
+                                   .format(self.get_nop_instructions(1), m1.group(2), m1.group(1)), 3
+                    else:
+                        return "", 3
+
                 m1 = self.test_3B.match(ins_list[idx]["opcode"])
                 if m1 is not None:  # test reg1, reg1
                     rnd = random.randint(1, 2)
+
                     if rnd == 1:  # or reg1, reg1
                         return "or {0}, {0}".format(m1.group(1)), 3
                     else:  # test reg1, reg1
@@ -249,6 +270,7 @@ class MetaEngine:
                 m1 = self.or_3B.match(ins_list[idx]["opcode"])
                 if m1 is not None:  # or reg1, reg1
                     rnd = random.randint(1, 2)
+
                     if rnd == 1:  # test reg1, reg1
                         return "test {0}, {0}".format(m1.group(1)), 3
                     else:  # or reg1, reg1
@@ -257,6 +279,7 @@ class MetaEngine:
                 m1 = self.xor_3B.match(ins_list[idx]["opcode"])
                 if m1 is not None:  # xor reg1, reg1
                     rnd = random.randint(1, 2)
+
                     if rnd == 1:  # sub reg1, reg1
                         return "sub {0}, {0}".format(m1.group(1)), 3
                     else:  # xor reg1, reg1
@@ -265,20 +288,24 @@ class MetaEngine:
                 m1 = self.sub_3B.match(ins_list[idx]["opcode"])
                 if m1 is not None:  # sub reg1, reg1
                     rnd = random.randint(1, 2)
+
                     if rnd == 1:  # xor reg1, reg1
                         return "xor {0}, {0}".format(m1.group(1)), 3
                     else:  # sub reg1, reg1
                         return "", 3
+                return None
 
         if self.bits == 32:
             if ins_list[idx]["size"] == 5:
                 m1 = self.mov_5B.match(ins_list[idx]["opcode"])
                 if m1 is not None:
-                    if m1.group(2) in ["0x1", "1"]: # mov reg1, 1
+                    if m1.group(2) in ["0x1", "1"]:  # mov reg1, 1
                         rnd = random.randint(0, 3)
-                    elif m1.group(2) in ["0x0", "0"]: # mov reg1, 0
+
+                    elif m1.group(2) in ["0x0", "0"]:  # mov reg1, 0
                         rnd = random.randint(3, 6)
-                    else: # mov reg1, imm
+
+                    else:  # mov reg1, imm
                         rnd = random.randint(1, 3)
 
                     if rnd == 0:    # permutations, keeping order (push before pop, xor before inc)
@@ -288,6 +315,7 @@ class MetaEngine:
 
                         return self.obtain_permutation(ins_pair1, ins_pair2)\
                                    .format(m1.group(1)), 5
+
                     elif rnd == 1:  # permutations, keeping order (push before pop)
                                     # of --> push imm; pop reg; no-op
                         ins_pair1 = ["{0}"]
@@ -306,27 +334,24 @@ class MetaEngine:
                                            m1.group(2), m1.group(1)), 5
                     elif rnd == 3:
                         return "", 5
-                    elif rnd == 4: # permutations, keeping order (push before pop)
+
+                    elif rnd == 4: # permutations, keeping order (push before xor before pop, so flags are not modified)
                                     # of --> pushfd; xor reg1, reg1; popfd; no-op
-                        ins_pair1 = ["pushfd", "popfd"]
-                        ins_pair2 = ["xor {0}, {0}", "{1}"]
-
-                        return self.obtain_permutation(ins_pair1, ins_pair2, True) \
-                                   .format(m1.group(2), m1.group(1)), 5
-
-                    elif rnd == 5: # permutations, keeping order (push before pop)
-                                    # of --> pushfd; sub reg1, reg1; popfd; no-op
-                        ins_pair1 = ["pushfd", "popfd"]
-                        ins_pair2 = ["sub {0}, {0}", "{1}"]
-
-                        return self.obtain_permutation(ins_pair1, ins_pair2, True) \
-                                   .format(m1.group(2), m1.group(1)), 5
-                    elif rnd == 6: # permutations, keeping order (push before pop)
-                                    # of --> and reg1, 0; pushfd; popfd
-                        ins_pair1 = ["pushfd", "popfd"]
-                        ins_pair2 = ["and {}, 0"]
+                        ins_pair1 = ["pushfd", "xor {0}, {0}", "popfd"]
+                        ins_pair2 = ["{1}"]
 
                         return self.obtain_permutation(ins_pair1, ins_pair2) \
-                                   .format(m1.group(1)), 5
+                                   .format(m1.group(1), self.get_nop_instructions(1)), 5
+
+                    elif rnd == 5: # permutations, keeping order (push before sub before pop, so flags are not modified)
+                                    # of --> pushfd; sub reg1, reg1; popfd; no-op
+                        ins_pair1 = ["pushfd", "sub {0}, {0}", "popfd"]
+                        ins_pair2 = ["{1}"]
+
+                        return self.obtain_permutation(ins_pair1, ins_pair2) \
+                                   .format(m1.group(1), self.get_nop_instructions(1)), 5
+
+                    else: # pushfd; and reg1, 0; popfd
+                        return "pushfd; and {}, 0; popfd".format(m1.group(1)), 5
 
                 return None
