@@ -50,7 +50,7 @@ class MetaEngine:
         elif self.bits == 64:
             if size == 2:
                 choice = random.randint(1, 3)
-                # sergio
+
                 if choice == 1:
                     return "pushfq; popfq"
 
@@ -110,8 +110,8 @@ class MetaEngine:
 
         self.regs = ["eax", "ebx", "ecx", "edx", "esi", "edi"] if self.bits == 32 \
             else ["rax", "rbx", "rcx", "rdx", "rsi", "rdi"]
-        # "r8", "r9",
-        # "r10", "r11", "r12", "r13", "r14", "r15"
+        #  for some reason those registers crash the program:
+        #  r8, r9, r10, r11, r12, r13, r14, r15
         self.nop_1B = re.compile(r"nop$")
         self.push_1B = re.compile(r"push (e..)$")
         self.pop_1B = re.compile(r"pop (e..)$")

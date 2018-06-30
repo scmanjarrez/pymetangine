@@ -21,6 +21,7 @@ def mutate_function(args, func):
     mutations = []
     while ins_idx < n_ins:
         ins_analyzed = func["ops"][ins_idx]
+
         if ins_analyzed["type"] not in META.mutable_ins:
             ins_idx += 1
             continue
@@ -31,21 +32,24 @@ def mutate_function(args, func):
 
             if ins_analyzed["size"] == size:
                 if args.debug:
-                    print colored("[DEBUG] Mutating instruction ({:#x}): {:15s} --> {:30s}"
+                    print colored("[DEBUG] Mutating instruction ({:#x}): {:20s} -->    {:30s}"
                           .format(ins_analyzed["offset"], ins_analyzed["opcode"],
                                   mutation if mutation != "" else ins_analyzed["opcode"]), "green" if mutation != "" else "magenta")
                 if mutation:
                     mutations.append({"offset": ins_analyzed["offset"], "bytes": generate_bytes(mutation)})
             else:
                 ins_to_skip = size-ins_analyzed["size"]
-                # TODO -> cambiar nop; nop por push reg2; pop reg1 cuando sea necesario
-                n_nops = "nop" + "; nop" * ins_to_skip
-                same_ins = mutation == "" or mutation == n_nops
+                if ins_analyzed["type"] == "upush":
+                    orig_ins = "{}; {}".format(func["ops"][ins_idx]["opcode"], func["ops"][ins_idx + 1]["opcode"])
+                else:
+                    orig_ins = "nop" + "; nop" * ins_to_skip
+
+                same_ins = mutation == "" or mutation == orig_ins
 
                 if args.debug:
-                    print colored("[DEBUG] Mutating instruction ({:#x}): {:15s} --> {:30s}"
-                          .format(ins_analyzed["offset"], n_nops,
-                                  mutation if not same_ins else n_nops), "green" if not same_ins else "magenta")
+                    print colored("[DEBUG] Mutating instruction ({:#x}): {:20s} -->    {:30s}"
+                          .format(ins_analyzed["offset"], orig_ins,
+                                  mutation if not same_ins else orig_ins), "green" if not same_ins else "magenta")
 
                 ins_idx += ins_to_skip
                 if not same_ins:
@@ -117,11 +121,11 @@ def configure_environment(args):
 
 def parse_arguments():
     argparser = argparse.ArgumentParser(prog="pymetangine",
-                                     description='A python metamorphic engine for x86_64 using radare2.')
+                                        description='A python metamorphic engine for x86_64 using radare2.')
     argparser.add_argument('-i', '--input', required=True,
-                        help='Indicate the path to the input executable')
+                           help='Indicate the path to the input executable')
     argparser.add_argument('-o', '--output', default='meta.exe',
-                        help='Indicate the path to the output executable. Otherwise, use default output: meta.exe.')
+                           help='Indicate the path to the output executable. Otherwise, use default output: meta.exe.')
     argparser.add_argument('-d', '--debug', action='store_true',
                            help='Generate debug messages of the execution.')
 
