@@ -8,6 +8,7 @@ from termcolor import colored
 
 KS = None
 META = None
+total_ins = 0
 
 
 def generate_bytes(code):
@@ -16,6 +17,7 @@ def generate_bytes(code):
 
 
 def mutate_function(args, func):
+    global total_ins
     n_ins = len(func["ops"])
     ins_idx = 0
     mutations = []
@@ -29,6 +31,7 @@ def mutate_function(args, func):
         meta = META.generate_mutations(func["ops"], ins_idx)
         if meta is not None:
             mutation, size = meta
+            total_ins += 1
 
             if ins_analyzed["size"] == size:
                 if args.debug:
@@ -63,8 +66,8 @@ def patch_executable(args, r2, list_mutations):
     for idx, mutation in enumerate(list_mutations):
         r2.cmd("wx {} @{}".format(mutation["bytes"], mutation["offset"]))
 
-    print colored("[INFO] Total number of mutations: {}"
-          .format(len(list_mutations)), "cyan")
+    print colored("[INFO] Total number of mutations: {}/{}"
+          .format(len(list_mutations), total_ins), "cyan")
 
 
 def main(args, r2):
