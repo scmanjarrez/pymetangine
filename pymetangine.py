@@ -124,13 +124,17 @@ def configure_environment(args):
 
 def parse_arguments():
     argparser = argparse.ArgumentParser(prog="pymetangine",
-                                        description='A python metamorphic engine for x86_64 using radare2.')
+                                        description='A python metamorphic engine for PE/PE+ using radare2.')
+    argparser.add_argument('-b', '--batch', action='store_true',
+                           help='Enable batch execution, receiving a directory as input/output.')
     argparser.add_argument('-i', '--input', required=True,
-                           help='Indicate the path to the input executable')
+                           help='Path to input executable/directory.')
     argparser.add_argument('-o', '--output', default='meta.exe',
-                           help='Indicate the path to the output executable. Otherwise, use default output: meta.exe.')
+                           help='Path to output executable/directory. Default: meta.exe/meta for file/directory.')
     argparser.add_argument('-d', '--debug', action='store_true',
-                           help='Generate debug messages of the execution.')
+                           help='Enable debug messages during execution.')
+    argparser.add_argument('-r', '--random', choices=['on', 'off'], default='on',
+                           help='Change mode of replacements, random/all substitutions.')
 
     args = argparser.parse_args()
 
