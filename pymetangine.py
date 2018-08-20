@@ -87,24 +87,29 @@ def main(args, r2):
     print colored("[INFO] Loading functions information.", "cyan")
     functions = r2.cmdj("aflj")
 
-    print colored("[INFO] Disassembling functions.", "cyan")
-    mutations = []
-    for fun in functions:
-        if fun["type"] == "fcn":
-            try:
-                fun_code = r2.cmdj("pdfj @{}".format(fun["name"]))
-            except:
-                print colored("[ERROR] Function {} could not be disassembled".format(fun["name"]), "red")
-            else:
-                mutation = mutate_function(args, fun_code)
-                if mutation is not None and mutation:
-                    mutations.append(mutation)
+    if functions is not None:
+        print colored("[INFO] Disassembling functions.", "cyan")
+        mutations = []
+        for fun in functions:
+            if fun["type"] == "fcn":
+                try:
+                    fun_code = r2.cmdj("pdfj @{}".format(fun["name"]))
+                except:
+                    print colored("[ERROR] Function {} could not be disassembled".format(fun["name"]), "red")
+                else:
+                    mutation = mutate_function(args, fun_code)
+                    if mutation is not None and mutation:
+                        mutations.append(mutation)
 
-    print colored("[INFO] Starting patching routine.", "cyan")
-    mutations = [dict for sub_list in mutations for dict in sub_list]
-    patch_executable(args, r2, mutations)
+        print colored("[INFO] Starting patching routine.", "cyan")
+        mutations = [dict for sub_list in mutations for dict in sub_list]
+        patch_executable(args, r2, mutations)
 
-    print colored("[INFO] Exiting...", "cyan")
+        print colored("[INFO] Exiting...", "cyan")
+    else:
+        print colored("[ERROR] Could not load any function.", "red")
+        if args.batch:
+            batch_log.write('{}\n'.format("Error: Could not load any function."))
     r2.quit()
 
 
@@ -119,12 +124,20 @@ def configure_environment(args):
         print colored("[DEBUG] Analyzing architecture of the executable.", "green")
 
     exe_info = r2.cmdj('ij')
-    if exe_info['bin']['arch'] == "x86":
-        bits = exe_info['bin']['bits']
-        print colored("[INFO] Detected {} bits architecture.".format(bits), "cyan")
+    if 'bin' in exe_info:
+        if exe_info['bin']['arch'] == "x86":
+            bits = exe_info['bin']['bits']
+            print colored("[INFO] Detected {} bits architecture.".format(bits), "cyan")
+        else:
+            print colored("[ERROR] Architecture not supported.", "red")
+            if args.batch:
+                batch_log.write('{}\n'.format("Error: Architecture not supported."))
+            return None
     else:
-        print colored("[ERROR] Architecture not supported.", "red")
-        sys.exit()
+        print colored("[ERROR] Format file not supported.", "red")
+        if args.batch:
+            batch_log.write('{}\n'.format("Error: File format not supported."))
+        return None
 
     print colored("[INFO] Analyzing executable code.", "cyan")
     r2.cmd('aaa')
@@ -197,6 +210,7 @@ if __name__ == "__main__":
     args = parse_arguments()
     if args.batch:
         prepare_batch_execution(args)
+
         executables = [exe for exe in listdir(args.input)
                        if isfile(join(args.input, exe))]
 
@@ -213,9 +227,11 @@ if __name__ == "__main__":
             batch_log.write("{:50s}".format(exe))
 
             r2 = configure_environment(args)
-            main(args, r2)
+            if r2 is not None:
+                main(args, r2)
 
         batch_log.close()
     else:
         r2 = configure_environment(args)
-        main(args, r2)
+        if r2 is not None:
+            main(args, r2)
