@@ -102,3 +102,15 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+malshare_apikey
+API_KEY
+API_KEY2
+API_KEY3
+bin_org/
+bin_rdn/
+bin_rdy/
+viruspy/
+plotpy/
+.idea/
+exe_bks/

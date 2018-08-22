@@ -16,13 +16,13 @@ if not os.path.isfile(sys.argv[1]):
 original = open(sys.argv[2], 'w')
 
 API_KEY = ''
-with open('API_KEY', 'r') as f:
+with open('API_KEY2', 'r') as f:
     API_KEY = f.read().strip()
 
 executables = []
 
 with open(sys.argv[1], 'r') as f:
-    executables = f.read().splitlines()
+    executables = [elem.split()[0] for elem in f.read().splitlines()]
 
 executables = [executables[idx:idx+25] for idx in range(0, len(executables), 25)]
 
