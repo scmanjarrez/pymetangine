@@ -105,7 +105,7 @@ def main(args, r2):
         mutations = [dict for sub_list in mutations for dict in sub_list]
         patch_executable(args, r2, mutations)
 
-        print colored("[INFO] Exiting...", "cyan")
+        print colored("[INFO] Exiting...\n", "cyan")
     else:
         print colored("[ERROR] Could not load any function.", "red")
         if args.batch:
@@ -134,7 +134,7 @@ def configure_environment(args):
                 batch_log.write('{}\n'.format("Error: Architecture not supported."))
             return None
     else:
-        print colored("[ERROR] Format file not supported.", "red")
+        print colored("[ERROR] File format not supported.", "red")
         if args.batch:
             batch_log.write('{}\n'.format("Error: File format not supported."))
         return None
@@ -214,10 +214,11 @@ if __name__ == "__main__":
         executables = [exe for exe in listdir(args.input)
                        if isfile(join(args.input, exe))]
 
+        exe_sz = len(executables)
         in_dir = args.input
         out_dir = args.output
 
-        for exe in executables:
+        for idx, exe in enumerate(executables):
             args.input = join(in_dir, exe)
             if args.random == 'n':
                 args.output = join(out_dir, exe).replace('.bin', '_rn.bin')
@@ -226,6 +227,7 @@ if __name__ == "__main__":
 
             batch_log.write("{:50s}".format(exe))
 
+            print colored("[INFO] File {}/{}.".format(idx+1, exe_sz), "cyan")
             r2 = configure_environment(args)
             if r2 is not None:
                 main(args, r2)
