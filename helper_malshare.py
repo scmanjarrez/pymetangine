@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# malshare_download - MalShare download helper.
+# helper_malshare - MalShare download helper.
 
 # Copyright (C) 2021 Sergio Chica Manjarrez.
 
@@ -30,6 +30,13 @@ import os
 BATCH = 50
 THREADS = 5
 DELAY = 0.5
+
+COPYRIGHT = """
+pymetangine  Copyright (C) 2021 Sergio Chica Manjarrez.
+This program comes with ABSOLUTELY NO WARRANTY; for details check below.
+This is free software, and you are welcome to redistribute it
+under certain conditions; check below for details.
+"""
 
 
 def sample_batch(key, output, samples):
@@ -73,6 +80,8 @@ def main():
                            help='File containing MalShare API key.')
 
     args = argparser.parse_args()
+
+    print(COPYRIGHT)
 
     if not os.path.exists(args.output):
         os.makedirs(args.output, exist_ok=True)
