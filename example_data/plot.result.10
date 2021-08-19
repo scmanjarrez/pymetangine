@@ -1,0 +1,20 @@
+Sample_Hash                                       DetRate_OG     DetRate_RY     DetRate_RN     Mut_RY         Mut_RN         
+
+ccdaeef07bff578a23e4a6af7592d352.bin              78.57          67.14          68.85          12             27             
+d3e94909a6b134b83307168ab0ae8a1e.bin              80.88          72.06          71.43          6              9              
+fc58bb2fd1e26df5d2984571214bc907.bin              81.16          60.00          58.57          4              7              
+eb64be920df8837443a152fa143a9e5b.bin              82.61          75.00          75.36          18             25             
+be5b9e6b8dc76ca6b4f2616b47ccaba4.bin              82.61          72.46          73.91          14             26             
+f1a8cc909ca121f3a12f853e7dbe3a17.bin              82.86          66.67          68.12          21             41             
+dfd63fee904be4dec9cf510e2af19baf.bin              86.96          61.43          60.29          5715           11323          
+e73d15f22ba69e89c5e5ea5637935953.bin              87.14          60.87          68.57          35             67             
+c6ce21c4c9389a23d6deac23d9d43190.bin              90.00          81.43          80.00          55             91             
+bf5c97a8a23f66ad91122a96c2bb0e66.bin              91.43          77.14          76.81          1721           3492           
+
+Means                                             84.42          69.42          70.19          
+
+Det. RY -gt OG                                                                                      
+Det. RY -lt OG                                                                                      
+
+Det. RN -gt OG                                                                                      
+Det. RN -lt OG                                                                                      

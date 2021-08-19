@@ -1,239 +1,243 @@
-import sys
-import r2pipe
-import argparse
-import shutil
-import MetaEngine as me
-import keystone as ks
+#!/usr/bin/env python
 from termcolor import colored
-from os import listdir, mkdir
-from os.path import isfile, isdir, join, exists
-
-KS = None
-META = None
-total_ins = 0
-batch_log = None
-
-
-def generate_bytes(code):
-    asm, _ = KS.asm(code)
-    return "".join(["{:02x}".format(ins) for ins in asm])
+import metaengine
+import argparse
+import r2pipe
+import shutil
+import sys
+import os
 
 
-def mutate_function(args, func):
-    global total_ins
-    n_ins = len(func["ops"])
+def log(log_type, msg):
+    lt = {'info': 'cyan',
+          'debug': 'green',
+          'debugm': 'magenta',
+          'error': 'red'}
+    print(colored(f"[{log_type.upper()}] {msg}", lt[log_type]))
+
+
+def mutate_function(args, meta, func):
+    n_ins = len(func['ops'])
     ins_idx = 0
-    mutations = []
+    list_mutations = []
     while ins_idx < n_ins:
-        ins_analyzed = func["ops"][ins_idx]
+        ins_analyzed = func['ops'][ins_idx]
 
-        if ins_analyzed["type"] not in META.mutable_ins:
+        if ins_analyzed['type'] not in meta.mutable_ins:
             ins_idx += 1
             continue
 
         while True:
-            meta = META.generate_mutations(func["ops"], ins_idx)
-            if meta is not None:
-                mutation, size = meta
+            mut = meta.gen_mutations(func['ops'], ins_idx)
+            if mut is not None:
+                mutation, size = mut
                 if args.random == 'n' and not mutation:
                     continue
 
-                if ins_analyzed["size"] == size:
+                if ins_analyzed['size'] == size:
                     if args.debug:
-                        print colored("[DEBUG] Mutating instruction ({:#x}): {:20s} -->    {:30s}"
-                              .format(ins_analyzed["offset"], ins_analyzed["opcode"],
-                                      mutation if mutation else ins_analyzed["opcode"]), "green" if mutation else "magenta")
+                        mt = mutation if mutation else ins_analyzed['opcode']
+                        log('debug' if mutation else 'debugm',
+                            f"Mutating instruction "
+                            f"({ins_analyzed['offset']:#x}): "
+                            f"{ins_analyzed['opcode']:20s} -->    {mt:30s}")
                     if mutation:
-                        mutations.append({"offset": ins_analyzed["offset"], "bytes": generate_bytes(mutation)})
+                        list_mutations.append(
+                            {'offset': ins_analyzed['offset'],
+                             'bytes': meta.gen_bytes(mutation)})
                 else:
-                    ins_to_skip = size-ins_analyzed["size"]
-                    if ins_analyzed["type"] == "upush":
-                        orig_ins = "{}; {}".format(func["ops"][ins_idx]["opcode"], func["ops"][ins_idx + 1]["opcode"])
+                    ins_to_skip = size-ins_analyzed['size']
+                    if ins_analyzed['type'] == 'upush':
+                        orig_ins = (f"{func['ops'][ins_idx]['opcode']}; "
+                                    f"{func['ops'][ins_idx + 1]['opcode']}")
                     else:
-                        orig_ins = "nop" + "; nop" * ins_to_skip
+                        orig_ins = f"nop{'; nop'*ins_to_skip}"
 
-                    same_ins = mutation == "" or mutation == orig_ins
+                    same_ins = mutation == '' or mutation == orig_ins
                     if args.random == 'n' and same_ins:
                         continue
 
                     ins_idx += ins_to_skip
 
                     if args.debug:
-                        print colored("[DEBUG] Mutating instruction ({:#x}): {:20s} -->    {:30s}"
-                              .format(ins_analyzed["offset"], orig_ins,
-                                      mutation if not same_ins else orig_ins), "green" if not same_ins else "magenta")
+                        mt = mutation if not same_ins else orig_ins
+                        log('debug' if not same_ins else 'debugm',
+                            f"Mutating instruction "
+                            f"({ins_analyzed['offset']:#x}): "
+                            f"{orig_ins:20s} -->    {mt:30s}")
                     if not same_ins:
-                        mutations.append({"offset": ins_analyzed["offset"], "bytes": generate_bytes(mutation)})
-
-                total_ins += 1
+                        list_mutations.append(
+                            {'offset': ins_analyzed['offset'],
+                             'bytes': meta.gen_bytes(mutation)})
+                meta.ins_inc()
             break
         ins_idx += 1
-    return mutations
+    return list_mutations
 
 
-def patch_executable(args, r2, list_mutations):
-    print colored("[INFO] Writing mutations to {}".format(args.output), "cyan")
-    for idx, mutation in enumerate(list_mutations):
-        r2.cmd("wx {} @{}".format(mutation["bytes"], mutation["offset"]))
+def patch_executable(args, r2, meta, mutations, logger=None):
+    log('info', f"Writing mutations to {args.output}")
+    for idx, mutation in enumerate(mutations):
+        r2.cmd(f"wx {mutation['bytes']} @{mutation['offset']}")
 
-    print colored("[INFO] Total number of mutations: {}/{}"
-          .format(len(list_mutations), total_ins), "cyan")
+    log('info',
+        f"Mutations: {len(mutations)}/{meta.ins}")
 
     if args.batch:
-        batch_log.write('{:<5d}/{:>5d}\n'.format(len(list_mutations), total_ins))
+        logger.write(f"{len(mutations):<5d}/{meta.ins:>5d}\n")
 
 
-def main(args, r2):
-    print colored("[INFO] Loading functions information.", "cyan")
-    functions = r2.cmdj("aflj")
+def main(args, r2, meta, logger=None):
+    if args.debug:
+        log('debug', "Loading functions information.")
+    functions = r2.cmdj('aflj')
 
     if functions is not None:
-        print colored("[INFO] Disassembling functions.", "cyan")
+        if args.debug:
+            log('debug', "Disassembling functions.")
         mutations = []
         for fun in functions:
-            if fun["type"] == "fcn":
+            if fun['type'] == 'fcn':
                 try:
-                    fun_code = r2.cmdj("pdfj @{}".format(fun["name"]))
-                except:
-                    print colored("[ERROR] Function {} could not be disassembled".format(fun["name"]), "red")
+                    fun_code = r2.cmdj(f"pdfj @{fun['name']}")
+                except:  # noqa
+                    log('error',
+                        f"Function {fun['name']} could not be disassembled")
                 else:
-                    mutation = mutate_function(args, fun_code)
+                    mutation = mutate_function(args, meta, fun_code)
                     if mutation is not None and mutation:
                         mutations.append(mutation)
 
-        print colored("[INFO] Starting patching routine.", "cyan")
-        mutations = [dict for sub_list in mutations for dict in sub_list]
-        patch_executable(args, r2, mutations)
+        log('info', "Starting patching routine.")
+        mutations = [offsbytes for sub_list in mutations
+                     for offsbytes in sub_list]
+        patch_executable(args, r2, meta, mutations, logger)
 
-        print colored("[INFO] Exiting...\n", "cyan")
+        if not args.batch:
+            log('info', "Exiting...\n")
     else:
-        print colored("[ERROR] Could not load any function.", "red")
+        log('error', "Could not load any function.")
         if args.batch:
-            batch_log.write('{}\n'.format("Error: Could not load any function."))
+            logger.write("Error: Could not load any function.\n")
     r2.quit()
 
 
-def configure_environment(args):
-    global KS, META, total_ins
+def configure_environment(args, logger=None):
     shutil.copyfile(args.input, args.output)
 
-    print colored("[INFO] Opening {} in radare2.".format(args.input), "cyan")
-    r2 = r2pipe.open(args.output, ["-w"])
+    log('info', f"Opening {args.input} in radare2.")
+    r2 = r2pipe.open(args.output, ['-w'])
 
     if args.debug:
-        print colored("[DEBUG] Analyzing architecture of the executable.", "green")
+        log('debug', "Analyzing architecture of the executable.")
 
     exe_info = r2.cmdj('ij')
     if 'bin' in exe_info:
-        if exe_info['bin']['arch'] == "x86":
+        if exe_info['bin']['arch'] == 'x86':
             bits = exe_info['bin']['bits']
-            print colored("[INFO] Detected {} bits architecture.".format(bits), "cyan")
+            if args.debug:
+                log('debug', f"Detected {bits} bits architecture.")
         else:
-            print colored("[ERROR] Architecture not supported.", "red")
+            log('error', "Architecture not supported.")
             if args.batch:
-                batch_log.write('{}\n'.format("Error: Architecture not supported."))
+                logger.write('Error: Architecture not supported.\n')
             return None
     else:
-        print colored("[ERROR] File format not supported.", "red")
+        log('error', "File format not supported.")
         if args.batch:
-            batch_log.write('{}\n'.format("Error: File format not supported."))
+            logger.write("Error: File format not supported.\n")
         return None
 
-    print colored("[INFO] Analyzing executable code.", "cyan")
+    log('info', "Analyzing executable.")
     r2.cmd('aaa')
 
-    KS = ks.Ks(ks.KS_ARCH_X86, ks.KS_MODE_32 if bits == 32 else ks.KS_MODE_64)
-    META = me.MetaEngine(bits)
-    total_ins = 0
+    meta = metaengine.MetaEngine(bits)
 
-    return r2
+    return r2, meta
 
 
-def prepare_batch_execution(args):
-    global batch_log
-    if not exists(args.input):
-        mkdir(args.input)
+def check_batch_dir(in_dir, out_dir):
+    if not os.path.isdir(in_dir):
+        log('error', "Invalid input folder path.")
+        sys.exit(1)
+
+    if os.path.exists(out_dir) and not os.path.isdir(out_dir):
+        log('error', "Invalid output folder path.")
+        sys.exit(1)
+
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir, exist_ok=True)
         if args.debug:
-            print colored("[DEBUG] Creating directory {}.".format(args.input), "green")
-
-    if exists(args.input) and not isdir(args.input):
-        print colored("[ERROR] The input path is not a directory.", "red")
-        sys.exit()
-
-    if not exists(args.output):
-        mkdir(args.output)
-        if args.debug:
-            print colored("[DEBUG] Creating directory {}.".format(args.output), "green")
-
-    if exists(args.output) and not isdir(args.output):
-        print colored("[ERROR] The output path is not a directory.", "red")
-        sys.exit()
-
-    print colored("[INFO] Disabling debugging to not clutter terminal.", "cyan")
-    args.debug = False
-
-    batch_log = open(args.batch, 'w')
+            log('debug', f"Creating directory {out_dir}.")
 
 
 def parse_arguments():
-    argparser = argparse.ArgumentParser(prog="pymetangine",
-                                        description='A python metamorphic engine for PE/PE+ using radare2.')
-    argparser.add_argument('-b', '--batch', nargs='?', const='batch.log', default='',
-                           help='Enable batch execution, receiving a directory as input/output.')
-    argparser.add_argument('-i', '--input', required=True,
-                           help='Path to input executable/directory.')
-    argparser.add_argument('-o', '--output', default=['meta.exe', 'meta'],
-                           help='Path to output executable/directory. Default: meta.exe/meta for file/directory.')
-    argparser.add_argument('-d', '--debug', action='store_true',
-                           help='Enable debug messages during execution.')
-    argparser.add_argument('-r', '--random', choices=['y', 'n'], default='y',
-                           help='Change mode of replacements, random/all substitutions.')
+    argparser = argparse.ArgumentParser(
+        prog="pymetangine",
+        description="A python metamorphic engine for PE/PE+ using radare2.")
+    argparser.add_argument('-b', '--batch',
+                           nargs='?', const='batch.log', default='',
+                           help=("Enable batch execution, "
+                                 "receiving a directory as input/output."))
+    argparser.add_argument('-i', '--input',
+                           required=True,
+                           help="Path to input executable/directory.")
+    argparser.add_argument('-o', '--output',
+                           default=['mutations/mutated.bin', 'mutations'],
+                           help=("Path to output executable/directory. "
+                                 "Default: mutations/mutated.bin, mutations "
+                                 "for file/directory."))
+    argparser.add_argument('-d', '--debug',
+                           action='store_true',
+                           help="Enable debug messages during execution.")
+    argparser.add_argument('-r', '--random',
+                           choices=['y', 'n'], default='y',
+                           help=("Change mode of replacements, "
+                                 "random/all substitutions."))
 
     args = argparser.parse_args()
 
-    # Set default value for args.output, meta if args.batch, meta.exe otherwise
-    if type(args.output) is list:
+    # Set args.output default value.
+    if isinstance(args.output, list):
         if not args.batch:
-            args.output = args.output[0]
+            args.output = args.output[0]  # mutations/mutated.bin
         else:
-            args.output = args.output[1]
+            args.output = args.output[1]  # mutations
 
     if args.debug:
-        print colored("[DEBUG] Parsing arguments.", "green")
+        log('debug', "Parsing arguments.")
 
     return args
 
 
-# insercion de instrucciones inocuas, insercion de codigo muerto
-# sustitucion de instrucciones, sustituciones de registros
-if __name__ == "__main__":
+# nop insertion, dead code insertion, instruction subs, register subs
+if __name__ == '__main__':
     args = parse_arguments()
     if args.batch:
-        prepare_batch_execution(args)
-
-        executables = [exe for exe in listdir(args.input)
-                       if isfile(join(args.input, exe))]
-
-        exe_sz = len(executables)
+        check_batch_dir(args.input, os.path.join(args.input, args.output))
         in_dir = args.input
         out_dir = args.output
 
-        for idx, exe in enumerate(executables):
-            args.input = join(in_dir, exe)
-            if args.random == 'n':
-                args.output = join(out_dir, exe).replace('.bin', '_rn.bin')
-            else:
-                args.output = join(out_dir, exe).replace('.bin', '_ry.bin')
+        samples = [sample for sample in os.listdir(in_dir)
+                   if os.path.isfile(os.path.join(in_dir, sample))]
 
-            batch_log.write("{:50s}".format(exe))
+        with open(args.batch, 'w') as f:
+            for idx, sample in enumerate(samples):
+                args.input = os.path.join(in_dir, sample)
+                postfix = '_ry.bin'
+                if args.random == 'n':
+                    postfix = '_rn.bin'
+                args.output = os.path.join(
+                    in_dir, out_dir, sample).replace('.bin', postfix)
 
-            print colored("[INFO] File {}/{}.".format(idx+1, exe_sz), "cyan")
-            r2 = configure_environment(args)
-            if r2 is not None:
-                main(args, r2)
+                f.write(f"{sample:40s}")
 
-        batch_log.close()
+                log('info', f"File {idx+1}/{len(samples)}.")
+                r2, meta = configure_environment(args, f)
+                if r2 is not None:
+                    main(args, r2, meta, f)
+                print()
     else:
-        r2 = configure_environment(args)
+        r2, meta = configure_environment(args)
         if r2 is not None:
-            main(args, r2)
+            main(args, r2, meta)

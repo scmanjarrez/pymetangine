@@ -1,3 +1,12 @@
+# custom
+.key_malshare
+.key_virustotal
+pymeta/
+mutations/
+results/
+radare2/
+samples/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
