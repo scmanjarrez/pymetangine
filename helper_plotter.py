@@ -27,14 +27,6 @@ import os
 import re
 
 
-COPYRIGHT = """
-pymetangine  Copyright (C) 2021 Sergio Chica Manjarrez.
-This program comes with ABSOLUTELY NO WARRANTY; for details check below.
-This is free software, and you are welcome to redistribute it
-under certain conditions; check below for details.
-"""
-
-
 def normalize_name(name):
     return name.replace('_ry.bin', '.bin').replace('_rn.bin', '.bin')
 
@@ -255,7 +247,5 @@ if __name__ == '__main__':
                            help="Disable plot.")
 
     args = argparser.parse_args()
-
-    print(COPYRIGHT)
 
     main(args)

@@ -19,7 +19,6 @@
 # You should have received a copy of the GNU General Public License
 # along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.
 
-from termcolor import colored
 import metaengine
 import argparse
 import r2pipe
@@ -28,20 +27,20 @@ import sys
 import os
 
 
-COPYRIGHT = """
-pymetangine  Copyright (C) 2021 Sergio Chica Manjarrez.
-This program comes with ABSOLUTELY NO WARRANTY; for details check below.
-This is free software, and you are welcome to redistribute it
-under certain conditions; check below for details.
-"""
+_RED = '\033[91m'
+_GREEN = '\033[92m'
+_YELLOW = '\033[93m'
+_BLUE = '\033[94m'
+_CLEANC = '\033[0m'
+_NC = ''
 
 
 def log(log_type, msg):
-    lt = {'info': 'cyan',
-          'debug': 'green',
-          'debugm': 'magenta',
-          'error': 'red'}
-    print(colored(f"[{log_type.upper()}] {msg}", lt[log_type]))
+    lt = {'info': f'{_GREEN}[+] {_CLEANC}',
+          'debug': f'{_BLUE}[*] {_CLEANC}',
+          'debugw': f'{_YELLOW}[-] {_CLEANC}',
+          'error': f'{_RED}[!] {_CLEANC}'}
+    print(f"{lt[log_type]}{msg}")
 
 
 def mutate_function(args, meta, func):
@@ -65,7 +64,7 @@ def mutate_function(args, meta, func):
                 if ins_analyzed['size'] == size:
                     if args.debug:
                         mt = mutation if mutation else ins_analyzed['opcode']
-                        log('debug' if mutation else 'debugm',
+                        log('debug' if mutation else 'debugw',
                             f"Mutating instruction "
                             f"({ins_analyzed['offset']:#x}): "
                             f"{ins_analyzed['opcode']:20s} -->    {mt:30s}")
@@ -89,7 +88,7 @@ def mutate_function(args, meta, func):
 
                     if args.debug:
                         mt = mutation if not same_ins else orig_ins
-                        log('debug' if not same_ins else 'debugm',
+                        log('debug' if not same_ins else 'debugw',
                             f"Mutating instruction "
                             f"({ins_analyzed['offset']:#x}): "
                             f"{orig_ins:20s} -->    {mt:30s}")
@@ -200,30 +199,43 @@ def check_batch_dir(in_dir, out_dir):
 
 
 def parse_arguments():
-    argparser = argparse.ArgumentParser(
+    parser = argparse.ArgumentParser(
         prog="pymetangine",
         description="A python metamorphic engine for PE/PE+ using radare2.")
-    argparser.add_argument('-b', '--batch',
-                           nargs='?', const='batch.log', default='',
-                           help=("Enable batch execution, "
-                                 "receiving a directory as input/output."))
-    argparser.add_argument('-i', '--input',
-                           required=True,
-                           help="Path to input executable/directory.")
-    argparser.add_argument('-o', '--output',
-                           default=['mutations/mutated.bin', 'mutations'],
-                           help=("Path to output executable/directory. "
-                                 "Default: mutations/mutated.bin, mutations "
-                                 "for file/directory."))
-    argparser.add_argument('-d', '--debug',
-                           action='store_true',
-                           help="Enable debug messages during execution.")
-    argparser.add_argument('-r', '--random',
-                           choices=['y', 'n'], default='y',
-                           help=("Change mode of replacements, "
-                                 "random/all substitutions."))
 
-    args = argparser.parse_args()
+    parser.add_argument('-b', '--batch',
+                        nargs='?', const='batch.log', default='',
+                        help=("Enable batch execution, "
+                              "receiving a directory as input/output."))
+
+    parser.add_argument('-i', '--input',
+                        required=True,
+                        help="Path to input executable/directory.")
+
+    parser.add_argument('-o', '--output',
+                        default=['mutations/mutated.bin', 'mutations'],
+                        help=("Path to output executable/directory. "
+                              "Default: mutations/mutated.bin, mutations "
+                              "for file/directory."))
+
+    parser.add_argument('-d', '--debug',
+                        action='store_true',
+                        help="Enable debug messages during execution.")
+
+    parser.add_argument('-r', '--random',
+                        choices=['y', 'n'], default='y',
+                        help=("Change mode of replacements, "
+                              "random/all substitutions."))
+
+    parser.add_argument('--no-color',
+                        action='store_true',
+                        help="Disable ANSI color output.")
+
+    args = parser.parse_args()
+
+    if args.no_color:
+        global _GREEN, _BLUE, _YELLOW, _RED, _CLEANC
+        _GREEN = _BLUE = _YELLOW = _RED = _CLEANC = _NC
 
     # Set args.output default value.
     if isinstance(args.output, list):
@@ -241,8 +253,6 @@ def parse_arguments():
 # nop insertion, dead code insertion, instruction subs, register subs
 if __name__ == '__main__':
     args = parse_arguments()
-
-    print(COPYRIGHT)
 
     if args.batch:
         check_batch_dir(args.input, os.path.join(args.input, args.output))
@@ -269,6 +279,7 @@ if __name__ == '__main__':
                     main(args, r2, meta, f)
                 print()
     else:
+        args.output = os.path.join(os.path.dirname(args.input), args.output)
         r2, meta = configure_environment(args)
         if r2 is not None:
             main(args, r2, meta)
