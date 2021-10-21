@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 # helper_malshare - MalShare download helper.
 
 # Copyright (C) 2021 Sergio Chica Manjarrez.

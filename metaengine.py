@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+# SPDX-License-Identifier: GPL-3.0-or-later
 
 # metangine - metamorphic engine.
 
