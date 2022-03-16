@@ -4,7 +4,7 @@
 
 # pymetangine - main program.
 
-# Copyright (C) 2021 Sergio Chica Manjarrez.
+# Copyright (C) 2022 Sergio Chica Manjarrez.
 
 # This file is part of pymetangine.
 
