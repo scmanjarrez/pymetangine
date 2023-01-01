@@ -2,7 +2,7 @@
 
 # metangine - metamorphic engine.
 
-# Copyright (C) 2021-2022 Sergio Chica Manjarrez.
+# Copyright (C) 2021-2023 Sergio Chica Manjarrez.
 
 # This file is part of pymetangine.
 
